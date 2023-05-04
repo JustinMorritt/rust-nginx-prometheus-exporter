@@ -1,36 +1,21 @@
 # NGINX PROMETHEUS EXPORTER
+[![Rust](https://github.com/JustinMorritt/rust-nginx-prometheus-exporter/actions/workflows/rust.yml/badge.svg)](https://github.com/JustinMorritt/rust-nginx-prometheus-exporter/actions/workflows/rust.yml)
+[![Release](https://github.com/JustinMorritt/rust-nginx-prometheus-exporter/actions/workflows/Release.yml/badge.svg)](https://github.com/JustinMorritt/rust-nginx-prometheus-exporter/actions/workflows/Release.yml)
 
-
-## Pre-Requisites
-sudo vim /etc/nginx/nginx.conf
-
+## Guide
+1. Have a server setup using prometheus to scrape from this exporter
+2. Edit your nginx config file adding in the **Required** log format
+`sudo vim /etc/nginx/nginx.conf`
+```conf
 log_format logger-json escape=json '{"source": "nginx", "time": $msec, "resp_body_size": $body_bytes_sent, "host": "$http_host", "address": "$remote_addr", "request_length": $request_length, "method": "$request_method", "uri": "$request_uri", "status": $status,  "user_agent": "$http_user_agent", "resp_time": $request_time, "upstream_addr": "$upstream_addr"}';
 
-server {
-    listen 127.0.0.1:80;
-    server_name 127.0.0.1;
-
-    location /nginx_status {
-        stub_status;
-    }
-}
-
-# Node Exporter [Guide](https://prometheus.io/docs/guides/node-exporter/)
-[Better guide here](https://ourcodeworld.com/articles/read/1686/how-to-install-prometheus-node-exporter-on-ubuntu-2004)
-```terminal
-   sudo cp rust-nginx-exporter /usr/local/bin/
-  
-   sudo useradd --no-create-home --shell /bin/false node_exporter
-   sudo chown node_exporter:node_exporter /usr/local/bin/node_exporter
-
-   sudo vim /etc/systemd/system/rust-nginx-exporter.service
-   sudo systemctl daemon-reload
-   sudo systemctl enable rust-nginx-exporter
-   sudo systemctl start rust-nginx-exporter
-   sudo systemctl status rust-nginx-exporter
+access_log /var/log/nginx/access.log logger-json;
 ```
-
-## Create /etc/systemd/system/rust-nginx-exporter.service
+3. Add your executable to the /bin/
+`sudo cp rust-nginx-exporter /usr/local/bin/`
+4. Create a systemd service
+`sudo vim /etc/systemd/system/rust-nginx-exporter.service`
+```conf
 [Unit]
 Description=Nginx Exporter Service
 After=network.target
@@ -38,28 +23,32 @@ After=network.target
 User=root
 Group=root
 Type=simple
-ExecStart=/usr/local/bin/rust-nginx-exporter "/var/log/nginx/access.log"
+ExecStart=/usr/local/bin/rust-nginx-exporter
 [Install]
 WantedBy=multi-user.target
+```
+Note - Additional arguments can be passed in at the ExecStart for more customization
 
+![command_line_help](pics/command_line_help.png)
 
-# HELP Nginx Log_http_requests Number of HTTP requests received.
-# TYPE Nginx Log_http_requests counter
-Nginx Log_http_requests_total{method=\"GET\",path=\"/\"} 5
-Nginx Log_http_requests_total{method=\"GET\",path=\"/sitesettings/readCurrent\"} 2
-Nginx Log_http_requests_total{method=\"POST\",path=\"/user/readAll\"} 1
-Nginx Log_http_requests_total{method=\"POST\",path=\"/user/login\"} 1
-Nginx Log_http_requests_total{method=\"POST\",path=\"/sitesettings/readAll\"} 1
-# EOF
+5. Run the service and enable it within systemctl
+```terminal
+   sudo systemctl daemon-reload
+   sudo systemctl enable rust-nginx-exporter
+   sudo systemctl start rust-nginx-exporter
+   sudo systemctl status rust-nginx-exporter
+```
+6. Check your service locally with `curl localhost:9200/metrics` or whatever your path is
+7. Add in the target to your Prometheus target:
+`sudo vim /etc/prometheus/prometheus.yml`
+```yaml
+scrape_configs:
+  - job_name: 'nginx_exporter'
+    static_configs:
+      - targets: ['534.15.2.23:9200']
+```
 
-rustup target add x86_64-unknown-linux-musl
-cargo build --target=x86_64-unknown-linux-musl
-
-rustup target add x86_64-unknown-linux-gnu
-cargo build --target=x86_64-unknown-linux-gnu
-
-[target.x86_64-unknown-linux-musl]
-linker = "rust-lld"
-
-
-localhost:9200/metrics
+# Grafana Visualization
+- Export of the dashboard can be found [Here](./grafana/RustNginxLogStatsGrafana.json)
+![pic1](pics/Grafana1.png)
+![pic2](pics/Grafana2.png)
