@@ -52,3 +52,12 @@ scrape_configs:
 - Export of the dashboard can be found [Here](./grafana/RustNginxLogStatsGrafana.json)
 ![pic1](pics/Grafana1.png)
 ![pic2](pics/Grafana2.png)
+
+# TODO 
+- [ ] Build for more linux targets
+
+
+# Building For Linux
+```terminal
+cargo build --target="x86_64-unknown-linux-musl" --release
+```
